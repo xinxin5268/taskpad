@@ -37,6 +37,7 @@ OUTPUT_DIR = os.path.join(WORKSPACE, "workbench", "_catalog")
 CORE_SKILLS_FILE = os.path.join(OUTPUT_DIR, "core-skills.json")
 CATALOG_FILE = os.path.join(OUTPUT_DIR, "CURRENT_CATALOG.md")
 REGISTRY_FILE = os.path.join(OUTPUT_DIR, "registry.json")
+LOADED_SKILLS_FILE = os.path.join(OUTPUT_DIR, "loaded_skills.json")
 
 # ─── 三级分层定义 ─────────────────────────────────────
 
@@ -356,6 +357,95 @@ def generate_registry(skills: list):
     return registry
 
 
+# ─── 已加载技能管理（behavior-engine 集成）────────────
+
+def get_loaded_skills():
+    """读取已加载的技能列表"""
+    if os.path.exists(LOADED_SKILLS_FILE):
+        with open(LOADED_SKILLS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {"core": [], "toolkit": [], "scenario": [], "task_id": ""}
+
+
+def save_loaded_skills(data: dict):
+    """保存已加载的技能列表"""
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    with open(LOADED_SKILLS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def load_skills(skill_names: list, tier: str = "toolkit", task_id: str = ""):
+    """标记技能为已加载"""
+    loaded = get_loaded_skills()
+    for name in skill_names:
+        if name not in loaded[tier]:
+            loaded[tier].append(name)
+    if task_id:
+        loaded["task_id"] = task_id
+    save_loaded_skills(loaded)
+    return loaded
+
+
+def unload_skills(skill_names: list = None, tier: str = None):
+    """卸载指定技能"""
+    loaded = get_loaded_skills()
+    if skill_names is None:
+        for t in ["toolkit", "scenario"]:
+            if tier and t != tier:
+                continue
+            loaded[t] = []
+    else:
+        tiers = [tier] if tier else ["toolkit", "scenario"]
+        for t in tiers:
+            loaded[t] = [s for s in loaded[t] if s not in skill_names]
+    save_loaded_skills(loaded)
+    return loaded
+
+
+def cleanup_skills(task_id: str = None):
+    """任务完成后清理未使用的 toolkit/scenario 技能"""
+    loaded = get_loaded_skills()
+    if task_id and loaded.get("task_id") == task_id:
+        loaded["toolkit"] = []
+        loaded["scenario"] = []
+        loaded["task_id"] = ""
+        save_loaded_skills(loaded)
+        return True
+    return False
+
+
+# ─── behavior-engine 集成推荐 ─────────────────────────
+
+def be_integrate(task: str, skills: list) -> dict:
+    """为 behavior-engine 生成结构化推荐结果"""
+    task_lower = task.lower()
+    recs = recommend_skills(task, skills)
+    
+    result = {
+        "task": task,
+        "is_task": True,
+        "recommendations": {
+            "core": recs["core"],
+            "toolkit": [],
+            "scenario": [],
+        }
+    }
+    
+    toolkit_sorted = sorted(recs["toolkit"], key=lambda x: -x[2])
+    for name, cat, score in toolkit_sorted:
+        result["recommendations"]["toolkit"].append({
+            "name": name, "category": cat, "score": score
+        })
+    
+    scenario_sorted = sorted(recs["scenario"], key=lambda x: -x[2])
+    for name, scene, score in scenario_sorted:
+        result["recommendations"]["scenario"].append({
+            "name": name, "scene": scene, "score": score
+        })
+    
+    return result
+
+
 # ─── 统计 ─────────────────────────────────────────────
 
 def print_stats(skills: list):
@@ -387,12 +477,37 @@ def print_stats(skills: list):
 # ─── 主入口 ───────────────────────────────────────────
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "stats":
+    if len(sys.argv) < 2:
+        # 默认：扫描 + 分类 + 生成
+        print("🔍 扫描 Skill 目录...")
+        skills = scan_skills()
+        print(f"   发现 {len(skills)} 个技能")
+        
+        print("\n🏷️  分类中...")
+        for s in skills:
+            c = classify_skill(s)
+            tier_icon = {"core": "🏆", "toolkit": "🛠️", "scenario": "🎯"}.get(c["tier"], "📦")
+            cat_info = c["scene"] if c["scene"] else c["category"]
+            print(f"  {tier_icon} {s['dir_name']:30s} → [{c['tier']}] {cat_info}")
+        
+        print("\n📋 生成目录...")
+        generate_catalog(skills)
+        
+        print("\n📦 生成注册表...")
+        generate_registry(skills)
+        
+        print_stats(skills)
+        print("\n✅ 完成")
+        return
+    
+    cmd = sys.argv[1]
+    
+    if cmd == "stats":
         skills = scan_skills()
         print_stats(skills)
         return
     
-    if len(sys.argv) > 1 and sys.argv[1] == "match":
+    if cmd == "match":
         if len(sys.argv) < 3:
             print("用法: python3 classifier.py match \"你的任务描述\"")
             sys.exit(1)
@@ -418,30 +533,100 @@ def main():
             print(f"  📦 {name} ← {scene} (匹配度: {score})")
         
         print(f"\n💡 推荐加载命令:")
-        print(f"  BEHAVIOR_DISABLE_ALL=true  # 关行为引擎（调试用）")
-        print(f"  python3 classifier.py     # 重新扫描")
+        print(f"  python3 classifier.py load {' '.join([s[0] for s in toolkit_sorted[:3]])}  # 加载推荐技能")
+        print(f"  python3 classifier.py cleanup  # 任务完成后清理")
         return
     
-    # 默认：扫描 + 分类 + 生成
-    print("🔍 扫描 Skill 目录...")
-    skills = scan_skills()
-    print(f"   发现 {len(skills)} 个技能")
+    if cmd == "be-integrate":
+        """behavior-engine 集成：输出结构化 JSON"""
+        if len(sys.argv) < 3:
+            print(json.dumps({"error": "需要任务描述", "is_task": False}, ensure_ascii=False))
+            sys.exit(1)
+        task = sys.argv[2]
+        skills = scan_skills()
+        result = be_integrate(task, skills)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
     
-    print("\n🏷️  分类中...")
-    for s in skills:
-        c = classify_skill(s)
-        tier_icon = {"core": "🏆", "toolkit": "🛠️", "scenario": "🎯"}.get(c["tier"], "📦")
-        cat_info = c["scene"] if c["scene"] else c["category"]
-        print(f"  {tier_icon} {s['dir_name']:30s} → [{c['tier']}] {cat_info}")
+    if cmd == "load":
+        """加载指定技能"""
+        skills = scan_skills()
+        skill_names = sys.argv[2:] if len(sys.argv) > 2 else []
+        task_id = ""
+        
+        if not skill_names:
+            print("用法: python3 classifier.py load skill1 skill2 ...")
+            print("      python3 classifier.py load --all   # 加载所有已注册技能")
+            return
+        
+        if "--all" in skill_names:
+            skill_names.remove("--all")
+            skill_names = [s["dir_name"] for s in skills]
+        
+        # 按 tier 分类加载
+        toolkit_names = []
+        scenario_names = []
+        for name in skill_names:
+            for s in skills:
+                if s["dir_name"] == name:
+                    c = classify_skill(s)
+                    if c["tier"] == "toolkit":
+                        toolkit_names.append(name)
+                    elif c["tier"] == "scenario":
+                        scenario_names.append(name)
+                    break
+        
+        if toolkit_names:
+            load_skills(toolkit_names, "toolkit", task_id)
+        if scenario_names:
+            load_skills(scenario_names, "scenario", task_id)
+        
+        loaded = get_loaded_skills()
+        print(f"✅ 已加载: core={len(loaded['core'])} toolkit={len(loaded['toolkit'])} scenario={len(loaded['scenario'])}")
+        if loaded["toolkit"]:
+            print(f"  工具层: {', '.join(loaded['toolkit'])}")
+        if loaded["scenario"]:
+            print(f"  场景层: {', '.join(loaded['scenario'])}")
+        return
     
-    print("\n📋 生成目录...")
-    generate_catalog(skills)
+    if cmd == "loaded":
+        """查看当前已加载的技能"""
+        loaded = get_loaded_skills()
+        print(f"\n📦 当前已加载技能")
+        print(f"{'='*40}")
+        print(f"  🏆 核心层 ({len(loaded['core'])}): {', '.join(loaded['core']) if loaded['core'] else '无'}")
+        print(f"  🛠️  工具层 ({len(loaded['toolkit'])}): {', '.join(loaded['toolkit']) if loaded['toolkit'] else '无'}")
+        print(f"  🎯 场景层 ({len(loaded['scenario'])}): {', '.join(loaded['scenario']) if loaded['scenario'] else '无'}")
+        if loaded.get("task_id"):
+            print(f"  当前任务: {loaded['task_id']}")
+        return
     
-    print("\n📦 生成注册表...")
-    generate_registry(skills)
+    if cmd == "cleanup":
+        """清理未使用的 toolkit/scenario 技能"""
+        task_id = sys.argv[2] if len(sys.argv) > 2 else None
+        if cleanup_skills(task_id):
+            print(f"✅ 任务 {task_id} 完成，已清理未用技能")
+        else:
+            unload_skills()
+            print("✅ 已清理所有 toolkit/scenario 技能")
+        return
     
-    print_stats(skills)
-    print("\n✅ 完成")
+    if cmd == "catalog":
+        skills = scan_skills()
+        generate_catalog(skills)
+        print(f"✅ 目录已生成: {CATALOG_FILE}")
+        return
+    
+    print(f"未知命令: {cmd}")
+    print("用法:")
+    print("  python3 classifier.py                     # 扫描+分类+生成")
+    print("  python3 classifier.py match \"任务\"       # 推荐技能")
+    print("  python3 classifier.py be-integrate \"任务\" # 输出 JSON 给 behavior-engine")
+    print("  python3 classifier.py load skill1 skill2    # 加载技能")
+    print("  python3 classifier.py loaded               # 查看已加载")
+    print("  python3 classifier.py cleanup              # 清理未用技能")
+    print("  python3 classifier.py stats                # 统计")
+    print("  python3 classifier.py catalog              # 仅生成目录")
 
 
 if __name__ == "__main__":
