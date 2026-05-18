@@ -1,0 +1,353 @@
+/* TaskPad · 任务提示板样式 */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  background: transparent;
+  color: #e0e0e0;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+#app {
+  background: rgba(18, 18, 24, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  width: 380px;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  position: relative;
+}
+
+/* 标题栏 */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: move;
+  user-select: none;
+}
+
+#title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #ffffff;
+}
+
+#logo {
+  font-size: 18px;
+}
+
+#header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.header-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.header-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+#close-btn:hover {
+  background: rgba(255, 80, 80, 0.3);
+  color: #ff5555;
+}
+
+/* 内容区 */
+#content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+/* 设置面板 */
+#settings-panel {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+#settings-panel h3 {
+  font-size: 13px;
+  color: #aaa;
+  margin-bottom: 8px;
+  margin-top: 12px;
+}
+
+#settings-panel h3:first-child {
+  margin-top: 0;
+}
+
+#settings-panel hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin: 10px 0;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.switch-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #4fc3f7;
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.slider-text {
+  color: #ccc;
+  font-size: 13px;
+}
+
+/* 任务列表 */
+#task-list-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #aaa;
+}
+
+.badge {
+  background: rgba(79, 195, 247, 0.2);
+  color: #4fc3f7;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+#refresh-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+#refresh-btn:hover {
+  color: #4fc3f7;
+  background: rgba(79, 195, 247, 0.1);
+}
+
+/* 空状态 */
+#empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+#empty-state .hint {
+  font-size: 12px;
+  color: #555;
+  margin-top: 8px;
+}
+
+/* 任务卡片 */
+.task-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+
+.task-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.task-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.task-icon {
+  font-size: 14px;
+}
+
+.task-id {
+  font-weight: 500;
+  font-size: 13px;
+  color: #ddd;
+}
+
+.task-time {
+  margin-left: auto;
+  font-size: 11px;
+  color: #666;
+}
+
+/* 进度条 */
+.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.progress-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+.progress-fill.green { background: #4caf50; }
+.progress-fill.yellow { background: #ffc107; }
+.progress-fill.orange { background: #ff9800; }
+.progress-fill.red { background: #f44336; }
+
+.progress-text {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+}
+
+/* 任务状态 */
+.task-status {
+  font-size: 12px;
+  color: #aaa;
+  margin-bottom: 6px;
+}
+
+.task-step-info {
+  font-size: 11px;
+  color: #777;
+  margin-bottom: 8px;
+}
+
+/* 任务操作按钮 */
+.task-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.task-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #aaa;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.task-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.task-btn.play { border-color: rgba(76, 175, 80, 0.3); color: #81c784; }
+.task-btn.play:hover { background: rgba(76, 175, 80, 0.15); }
+
+.task-btn.pause { border-color: rgba(255, 193, 7, 0.3); color: #ffd54f; }
+.task-btn.pause:hover { background: rgba(255, 193, 7, 0.15); }
+
+.task-btn.stop { border-color: rgba(244, 67, 54, 0.3); color: #ef9a9a; }
+.task-btn.stop:hover { background: rgba(244, 67, 54, 0.15); }
+
+.task-btn.edit { border-color: rgba(79, 195, 247, 0.3); color: #81d4fa; }
+.task-btn.edit:hover { background: rgba(79, 195, 247, 0.15); }
+
+/* 底部 */
+#footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#status-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#status-indicator {
+  font-size: 10px;
+}
+
+#status-indicator.green { color: #4caf50; }
+#status-indicator.yellow { color: #ffc107; }
+#status-indicator.red { color: #f44336; }
+
+#status-text {
+  font-size: 12px;
+  color: #888;
+}
+
+#last-update {
+  font-size: 11px;
+  color: #555;
+}
+
+/* 工具类 */
+.hidden {
+  display: none !important;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

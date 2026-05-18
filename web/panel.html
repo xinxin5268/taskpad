@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🦞 TaskPad · 任务提示板</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+<div id="app">
+  <!-- 标题栏 -->
+  <div id="header">
+    <div id="title">
+      <span id="logo">🦞</span>
+      <span>TaskPad · 任务提示板</span>
+    </div>
+    <div id="header-actions">
+      <button class="header-btn" onclick="toggleSettings()" title="设置">⚙️</button>
+      <button class="header-btn" onclick="toggleMinimize()" id="minimize-btn" title="最小化">─</button>
+      <button class="header-btn" onclick="closePanel()" id="close-btn" title="关闭">✕</button>
+    </div>
+  </div>
+
+  <!-- 主体 -->
+  <div id="content">
+    <!-- 设置面板 -->
+    <div id="settings-panel" class="hidden">
+      <h3>⚙️ 功能开关</h3>
+      <label class="switch-row">
+        <input type="checkbox" id="switch-understander" checked onchange="saveSettings()">
+        <span class="slider-text">任务理解器</span>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="switch-researcher" checked onchange="saveSettings()">
+        <span class="slider-text">调研方案器</span>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="switch-slicer" checked onchange="saveSettings()">
+        <span class="slider-text">自切分执行器</span>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="switch-memory" checked onchange="saveSettings()">
+        <span class="slider-text">临时记忆自动机</span>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="switch-guard" checked onchange="saveSettings()">
+        <span class="slider-text">任务守护器</span>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="switch-hint" checked onchange="saveSettings()">
+        <span class="slider-text">恢复提示</span>
+      </label>
+      <hr>
+      <h3>🔔 通知</h3>
+      <label class="switch-row">
+        <input type="checkbox" id="switch-notify" checked onchange="saveSettings()">
+        <span class="slider-text">任务完成通知</span>
+      </label>
+      <label class="switch-row">
+        <input type="checkbox" id="switch-alert" checked onchange="saveSettings()">
+        <span class="slider-text">守护器告警</span>
+      </label>
+    </div>
+
+    <!-- 任务列表 -->
+    <div id="task-list">
+      <div id="task-list-header">
+        <span>📋 活跃任务</span>
+        <span id="task-count" class="badge">0</span>
+        <button id="refresh-btn" onclick="refreshTasks()" title="刷新">🔄</button>
+      </div>
+      <div id="tasks-container">
+        <div id="empty-state">
+          <p>📭 没有活跃任务</p>
+          <p class="hint">启动一个任务后，这里会自动显示进度</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部 -->
+    <div id="footer">
+      <div id="status-bar">
+        <span id="status-indicator" class="green">●</span>
+        <span id="status-text">运行中</span>
+      </div>
+      <div id="footer-info">
+        <span id="last-update">--:--:--</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="panel.js"></script>
+</body>
+</html>
