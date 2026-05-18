@@ -140,3 +140,75 @@
 > 这些故事发生在过去的日子里，每个痛点都是一堵南墙。
 > skill-central-manager（故事 1）是最大的一个坑，也是最痛的一个。
 > 装了 smart-skill-manager，不用再挨一遍。
+
+---
+
+## Token 优化说明
+
+### Token 开销估算
+
+| 操作 | 消耗 token | 说明 |
+|------|-----------|------|
+| 核心层 5 个 skill | ~200 | 始终加载，不随任务变化 |
+| 工具层推荐（每次） | ~50 | 关键词匹配 + 排序，长消息 |
+| 场景层加载 | ~300-800 | 按场景包含的 skill 数量 |
+| 清理阶段 | ~10 | 写文件清理 |
+
+对比：一次性加载 100 个 skill ≈ 3000-5000 tokens。
+
+### 弱模型建议
+
+- `SKILL_MANAGER_MAX_RECOMMEND=5` — 只展示 5 个选项，不超
+- `SKILL_MANAGER_CORE_ONLY=true` — 只用核心层，工具层和场景层关闭
+- 关闭 `SKILL_MANAGER_AUTO_RECOMMEND=false` — 不自动推荐，手动输入需求
+
+### 按场景推荐配置
+
+| 场景 | 推荐 | 不推荐 |
+|------|------|--------|
+| 日常聊天 | SKILL_MANAGER_DISABLE=true | 不需要任何 skill 管理 |
+| 快速简单任务 | 核心层 (5 个) | 场景层（太重）|
+| 复杂多步任务 | 全部开启 | — |
+| 弱模型 | 核心层 + 5 个推荐上限 | 场景层（选择太多）|
+| 调试 | 核心层 | 推荐/清理不触发 |
+
+---
+
+## Token 优化说明
+
+| 场景 | 无管理器 | 使用 smart-skill-manager |
+|------|----------|--------------------------|
+| 简单任务（写 Hello World） | 100 skills × ~200 tokens = **~20K tokens** | 5 core × ~200 tokens = **~1K tokens** |
+| 编码任务（写爬虫） | 同上，~20K tokens | core(5) + toolkit(3) = **~1.6K tokens** |
+| 安全审计 | 同上，~20K tokens | core(5) + 安全工具(3~5) = **~2K tokens** |
+| 数据分析 | 同上，~20K tokens | core(5) + 数据处理(2~3) = **~1.4K tokens** |
+| 全场景覆盖 | 全部加载，~20K token 烧完还没干活 | 按需加载，平均 **1~2K tokens**，省 80-90% |
+
+> 假设每个 skill 平均占 ~200 tokens（SKILL.md 上下文）。
+
+---
+
+## 弱模型建议配置
+
+弱模型（如 SenseNova、Qwen-7B、Phi-3）对大量选项表现差，建议：
+
+```bash
+# 推荐数从 10 降到 5，选项少准确率高
+export SKILL_MANAGER_MAX_RECOMMEND=5
+export SKILL_MANAGER_AUTO_RECOMMEND=true
+export SKILL_MANAGER_AUTO_CLEANUP=true
+```
+
+**原理：** 100 个选项 → 弱模型准确率接近随机。3~5 个选项 → 准确率 >80%。
+
+---
+
+## 按场景推荐配置表
+
+| 使用场景 | 显存/内存 | MAX_RECOMMEND | CORE_ONLY | 推荐层级 |
+|----------|-----------|---------------|-----------|----------|
+| 🚀 生产环境，强模型（GPT-4 / Claude） | 充足 | 10 | false | 三层全开 |
+| 🧪 开发测试，中等模型（Qwen-32B / Yi-34B） | 16~32GB | 5 | false | core + toolkit |
+| 📱 弱模型（Qwen-7B / Phi-3 / SenseNova） | <16GB | 3 | false | core + 精简 toolkit |
+| 🔋 超低配置（4GB 设备/嵌入式） | <8GB | 0 | true | 仅 core |
+| 🎯 单一场景（如只做安全审计） | — | 5 | false | core + 安全场景包 |

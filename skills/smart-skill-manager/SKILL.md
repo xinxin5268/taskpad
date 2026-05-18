@@ -30,8 +30,6 @@ description: 智能 Skill 分类分级分层管理器 — 自动整理、分级�
 
 ### 第一层：核心层（Core — 始终加载，~5 个）
 
-无论干什么都必须有的基础技能，加载了不浪费 token。
-
 | 分类 | 技能 | 原因 |
 |------|------|------|
 | 行为控制 | behavior-engine | Agent 不能没有规矩 |
@@ -40,11 +38,11 @@ description: 智能 Skill 分类分级分层管理器 — 自动整理、分级�
 | 安全 | vuln-scanner | 安全底线 |
 | 核心技能 | skill-summoner | 技能召唤 |
 
-**加载策略：** 始终加载，不占"可选的" token 预算。
+**何时触发：** Agent 启动时
+**输出什么：** 核心层 skill 清单
+**下一步：** 始终加载，不需要手动触发
 
 ### 第二层：工具层（Toolkit — 按任务按需加载）
-
-Agent 接到任务后，**自动推荐**可能需要的工具类 skill。
 
 | 分类 | 技能举例 | 触发场景 |
 |------|----------|----------|
@@ -55,11 +53,11 @@ Agent 接到任务后，**自动推荐**可能需要的工具类 skill。
 | 🐳 DevOps | docker、deploy、cli-proxy | Agent 检测到部署/运维任务 |
 | 🤖 AI Agent | codex、opencode、claude code | Agent 检测到编码/自动化任务 |
 
-**加载策略：** Agent 根据当前命令关键词自动推荐，用户/Agent 选一批加载。
+**何时触发：** classifier 检测到任务关键词时
+**输出什么：** 排序后的推荐清单（含匹配度），最多 5 个（弱模型）或全部（强模型）
+**下一步：** Agent/用户选一批 → load → 开始执行
 
 ### 第三层：场景层（Scenario — 按场景主题加载）
-
-面向特定使用场景的完整技能包，按主题一键加载。
 
 | 场景 | 包含技能 | 典型用户 |
 |------|----------|----------|
@@ -73,7 +71,15 @@ Agent 接到任务后，**自动推荐**可能需要的工具类 skill。
 | 🧪 科研 | research、arxiv、blogwatcher | 研究人员 |
 | 🏠 智能家居 | smart-home | 家庭自动化 |
 
-**加载策略：** Agent 检测到场景关键词，或用户说"切换到 XX 模式"时批量加载。
+**何时触发：** 用户说"切换到 XX 模式"或检测到场景关键词
+**输出什么：** 该场景包含的 skill 清单
+**下一步：** 批量加载 → 开始执行
+
+### 清理层（Cleanup — 任务完成后自动回收）
+
+**何时触发：** 任务完成后（onStepEnd）
+**输出什么：** `✅ 已完成回收`
+**下一步：** 释放 token → 继续对话
 
 ---
 
@@ -101,31 +107,6 @@ Agent 接到任务后，**自动推荐**可能需要的工具类 skill。
 
 ---
 
-## 自动 Skill 清单
-
-每次 Agent 启动或任务检测时，自动生成最新 `CURRENT_CATALOG.md`：
-
-```
-┌─────────────────────────────────┐
-│  当前 Skill 目录                │
-│                                 │
-│  核心层 (始终加载):              │
-│  ├─ 🛡️ behavior-engine        │
-│  ├─ 🧠 taskpad                 │
-│  ├─ 📋 taskflow                │
-│                                 │
-│  工具层 (按需): 推荐 1 个       │
-│  ├─ 🔧 cloack-browser         │
-│                                 │
-│  场景层 (未加载): 8 个场景可选  │
-│  ├─ 🛡️ 安全审计 (4 skills)    │
-│  ├─ 📊 数据分析 (2 skills)     │
-│  └─ ...                        │
-└─────────────────────────────────┘
-```
-
----
-
 ## 安装
 
 ```bash
@@ -133,15 +114,24 @@ Agent 接到任务后，**自动推荐**可能需要的工具类 skill。
 cp -r skills/smart-skill-manager ~/.openclaw/workspace/skills/smart-skill-manager
 
 # 2. 注入到 AGENTS.md（自动生效）
-cat << 'EOF' >> ~/.openclaw/workspace/AGENTS.md
-
-### 技能管理器（自动生效）
-接任务时自动匹配场景→晒出 skill 清单→加载→执行→清理。不使用的 skill 不加载，不占 token。
-核心层始终加载，工具层按需加载，场景层按主题加载。
-EOF
+cat skills/smart-skill-manager/AGENTS-INJECT.md >> ~/.openclaw/workspace/AGENTS.md
 
 # 3. 在 openclaw.json 注册
 # "skills": { "entries": { "smart-skill-manager": { "enabled": true } } }
+```
+
+---
+
+## 命令
+
+```bash
+python3 classifier.py                     # 扫描+分类+生成目录（默认）
+python3 classifier.py match "任务"        # 推荐技能
+python3 classifier.py be-integrate "任务"  # 输出 JSON 给 behavior-engine
+python3 classifier.py load skill1 skill2   # 加载指定的技能
+python3 classifier.py loaded               # 查看当前已加载的技能
+python3 classifier.py cleanup              # 清理未用技能
+python3 classifier.py stats                # 统计
 ```
 
 ---
@@ -152,17 +142,21 @@ EOF
 |------|------|
 | `SKILL_MANAGER_DISABLE=true` | 关闭智能管理器 |
 | `SKILL_MANAGER_CORE_ONLY=true` | 仅加载核心层 |
-| `SKILL_MANAGER_AUTO_CLEANUP=true` | 任务完成后自动清理未用 skill |
-| `SKILL_MANAGER_AUTO_RECOMMEND=true` | 自动推荐 skill（默认开） |
+| `SKILL_MANAGER_AUTO_CLEANUP=true` | 自动清理未用 skill（默认开）|
+| `SKILL_MANAGER_AUTO_RECOMMEND=true` | 自动推荐 skill（默认开）|
+| `SKILL_MANAGER_MAX_RECOMMEND=5` | 弱模型最大推荐数（默认 5）|
 
 ---
 
-## 与已有管理器的区别
+## 兼容性
 
-| | auto-index-v3.py | smart-skill-manager |
-|--|-----------------|---------------------|
-| 功能 | 静态索引 + 关键词匹配 | **动态加载 + 场景推荐 + 分层管理** |
-| 触发方式 | 手动运行 `python3 ... match "任务"` | **自动侦测任务，主动晒清单** |
-| 加载方式 | 只提供匹配结果，不管加载 | **按层级按场景按需加载** |
-| 清理 | 不回收 | **任务完成自动清理未用 skill** |
-| 弱模型适配 | 关键词匹配 | 同上 |
+| 系统 | 兼容性 | 说明 |
+|------|--------|------|
+| **Linux (WSL2 Ubuntu)** | ✅ 已验证 | 小宝运行环境 |
+| **Windows** | ✅ 已验证 | 小聪运行环境 |
+| **macOS** | ✅ 理论上兼容 | Python 脚本跨平台 |
+
+---
+
+> 踩坑故事见 [README.md](./README.md) | 快速注入版见 [AGENTS-INJECT.md](./AGENTS-INJECT.md)
+> 联动方案见 [integration-design.md](./integration-design.md)

@@ -241,6 +241,14 @@ def recommend_skills(task: str, skills: list):
             elif tier == "scenario":
                 recommendations["scenario"].append((skill["dir_name"], classification["scene"], score))
     
+    # 截断：弱模型最多 5 个推荐，强模型最多 15 个
+    # 也保证 be-integrate 输出的 JSON 不膨胀
+    max_recommend = int(os.environ.get("SKILL_MANAGER_MAX_RECOMMEND", "5"))
+    toolkit_sorted = sorted(recommendations["toolkit"], key=lambda x: -x[2])
+    scenario_sorted = sorted(recommendations["scenario"], key=lambda x: -x[2])
+    recommendations["toolkit"] = toolkit_sorted[:max(5, max_recommend)]
+    recommendations["scenario"] = scenario_sorted[:max(3, max_recommend // 2)]
+    
     return recommendations
 
 
